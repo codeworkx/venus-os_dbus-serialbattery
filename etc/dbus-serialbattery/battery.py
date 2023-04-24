@@ -81,6 +81,7 @@ class Battery(ABC):
         self.cells: List[Cell] = []
         self.control_charging = None
         self.control_voltage = None
+        self.control_voltage_offset = 0
         self.allow_max_voltage = True
         self.control_voltage_last_set = 0
         self.max_voltage_start_time = None
@@ -154,6 +155,30 @@ class Battery(ABC):
         else:
             self.manage_charge_voltage_step()
 
+    def manage_max_charge_voltage(self) -> float:
+        """
+        manage the max charge voltage based on charge current
+        :return: float
+        """
+        max_control_voltage = round((utils.MAX_CELL_VOLTAGE * self.cell_count), 3)
+        
+        if utils.CVCM_ENABLE:
+            # If charge current is off by at least 10%, reduce/increase charge voltage limit stepwise
+            if self.current > (self.control_charge_current * 1.1):
+                self.control_voltage_offset = self.control_voltage_offset - 0.01
+            elif self.current < (self.control_charge_current * 0.9):
+                if self.control_voltage_offset < 0:
+                    self.control_voltage_offset = self.control_voltage_offset + 0.01
+        else:
+            self.control_voltage_offset = 0
+
+        control_voltage = max_control_voltage + self.control_voltage_offset
+        # Make sure we never go above max allowed charge voltage
+        if control_voltage > max_control_voltage:
+            control_voltage = max_control_voltage
+
+        return control_voltage
+
     def manage_charge_voltage_linear(self) -> None:
         """
         manages the charge voltage using linear interpolation by setting self.control_voltage
@@ -216,7 +241,7 @@ class Battery(ABC):
                 self.control_voltage_last_set = control_voltage_time
 
         elif self.allow_max_voltage:
-            self.control_voltage = round((utils.MAX_CELL_VOLTAGE * self.cell_count), 3)
+            self.control_voltage = self.manage_max_charge_voltage()
 
         else:
             self.control_voltage = round(
@@ -269,7 +294,8 @@ class Battery(ABC):
                     pass
 
         if self.allow_max_voltage:
-            self.control_voltage = utils.MAX_CELL_VOLTAGE * self.cell_count
+            self.control_voltage = self.manage_max_charge_voltage()
+
         else:
             self.control_voltage = utils.FLOAT_CELL_VOLTAGE * self.cell_count
 
