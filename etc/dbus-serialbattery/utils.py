@@ -133,6 +133,10 @@ MAX_DISCHARGE_CURRENT_CV = _get_list_from_config(
     lambda v: MAX_BATTERY_DISCHARGE_CURRENT * float(v),
 )
 
+# Percentage tolerated deviation between desired and actual charging current (0 = disabled, greater or equal 10 = enabled)
+# Reduces Charge Voltage Limit (CVL) stepwise by 0.01V if actual charging current is not within desired range
+CHARGE_CURRENT_PERMISSIBLE_DEVIATION = int(config["DEFAULT"]["CHARGE_CURRENT_PERMISSIBLE_DEVIATION"])
+
 
 # --------- Temperature limitation (affecting CCL/DCL) ---------
 # Description: Maximal charge / discharge current will be in-/decreased depending on temperature

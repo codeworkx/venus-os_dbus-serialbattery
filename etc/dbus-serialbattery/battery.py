@@ -157,20 +157,23 @@ class Battery(ABC):
 
     def manage_max_charge_voltage(self) -> float:
         """
-        manage the max charge voltage based on charge current
+        manage the max charge voltage based on charge current deviation
         :return: float
         """
         max_control_voltage = round((utils.MAX_CELL_VOLTAGE * self.cell_count), 3)
         
-        if utils.CVCM_ENABLE:
-            # If charge current is off by at least 10%, reduce/increase charge voltage limit stepwise
-            if self.current > (self.control_charge_current * 1.1):
+        # If charge current is off by at least 10%, reduce/increase charge voltage limit stepwise
+        if utils.CHARGE_CURRENT_PERMISSIBLE_DEVIATION >= 10:
+            charge_current_max = \
+                self.control_charge_current / 100 * (100 + utils.CHARGE_CURRENT_PERMISSIBLE_DEVIATION)
+            charge_current_min = \
+                self.control_charge_current / 100 * (100 - utils.CHARGE_CURRENT_PERMISSIBLE_DEVIATION)
+                
+            if self.current > charge_current_max:
                 self.control_voltage_offset = self.control_voltage_offset - 0.01
-            elif self.current < (self.control_charge_current * 0.9):
+            elif self.current < charge_current_min:
                 if self.control_voltage_offset < 0:
                     self.control_voltage_offset = self.control_voltage_offset + 0.01
-        else:
-            self.control_voltage_offset = 0
 
         control_voltage = max_control_voltage + self.control_voltage_offset
         # Make sure we never go above max allowed charge voltage
@@ -726,6 +729,9 @@ class Battery(ABC):
         )
         logger.info(
             f"> CCCM SOC: {str(utils.CCCM_SOC_ENABLE).ljust(5)} | DCCM SOC: {utils.DCCM_SOC_ENABLE}"
+        )
+        logger.info(
+            f"> CHARGE CURRENT PERMISSIBLE DEVIATION: {utils.CHARGE_CURRENT_PERMISSIBLE_DEVIATION}%"
         )
 
         return
